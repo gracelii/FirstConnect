@@ -1,0 +1,9 @@
+# Xcode
+DerivedData/
+*.xcworkspace
+Pods/
+xcuserdata/
+
+# Secrets
+Config/GoogleMaps.plist
+*.env
