@@ -1,0 +1,14 @@
+<plist version="1.0">
+<dict>
+<key>NSLocationWhenInUseUsageDescription</key>
+<string>We use your location to show responder distance and ETA.</string>
+<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+<string>We use your location to keep tracking accurate in the background.</string>
+<key>NSLocationAlwaysUsageDescription</key>
+<string>We use your location to keep tracking accurate in the background.</string>
+<key>UIBackgroundModes</key>
+<array>
+<string>location</string>
+</array>
+</dict>
+</plist>
