@@ -1,0 +1,6 @@
+<plist version="1.0">
+<dict>
+<key>GOOGLE_MAPS_IOS_API_KEY</key>
+<string>YOUR_IOS_SDK_KEY</string>
+</dict>
+</plist>
