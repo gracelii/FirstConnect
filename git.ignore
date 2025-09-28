@@ -1,0 +1,10 @@
+# Xcode
+DerivedData/
+*.xcworkspace
+Pods/
+Config/GoogleMaps.plist
+xcuserdata/
+
+
+# Secrets
+*.env
