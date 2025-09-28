@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Responder Demo</title>
+<style>
+  :root { --bg:#0b1220; --card:#121a2a; --ink:#e8eefc; --muted:#9fb2d9; --accent:#6ea8fe; --ok:#5bc08a;}
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+  .wrap { display:grid; grid-template-columns: 360px 1fr; gap:16px; padding:16px; min-height:100vh; }
+  .panel, .phone { background:var(--card); border-radius:16px; padding:16px; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+  h2, h3 { margin:0 0 12px; font-weight:700; letter-spacing:.2px; }
+  label { display:block; margin:8px 0 4px; color:var(--muted); }
+  input, button, select { width:100%; padding:10px 12px; border-radius:12px; border:1px solid #22314f; background:#0f1726; color:var(--ink); }
+  input:focus, button:focus { outline:2px solid var(--accent); outline-offset:2px; }
+  .row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .btn { background:#14213a; border:1px solid #243556; cursor:pointer; }
+  .btn:hover { background:#1a2a4d; }
+  .btn.accent { background:var(--accent); color:#08101f; border:none; font-weight:700; }
+  .btn.good { background:var(--ok); color:#05130d; border:none; font-weight:700; }
+  .stack { display:flex; gap:8px; }
+  .stack > * { flex:1; }
+  .meter { margin-top:12px; background:#0f1726; border:1px solid #22314f; height:12px; border-radius:999px; position:relative; overflow:hidden; }
+  .dot { position:absolute; top:50%; transform:translate(-50%,-50%); width:16px; height:16px; background:var(--accent); border-radius:50%; box-shadow:0 0 0 4px rgba(110,168,254,.15); }
+  .legend { display:flex; justify-content:space-between; color:var(--muted); font-size:12px; margin-top:6px; }
+  /* Phone UI */
+  .phone { display:grid; grid-template-rows: auto auto 1fr; gap:10px; }
+  .eta { background:#0f1726; border:1px solid #22314f; border-radius:12px; padding:10px; display:flex; justify-content:space-between; align-items:center; }
+  .eta strong { color:#cfe0ff; }
+  .chat { overflow:auto; display:flex; flex-direction:column; gap:8px; padding:2px; }
+  .bubble { max-width:78%; padding:10px 12px; border-radius:14px; line-height:1.35; box-shadow:0 6px 18px rgba(0,0,0,.25); }
+  .bubble.dispatcher { align-self:flex-start; background:#0e2548; border:1px solid #2c4b7c; }
+  .bubble.system { align-self:center; background:#0f1726; border:1px dashed #274067; color:var(--muted); }
+  .bubble.caller { align-self:flex-end; background:#1b2b49; border:1px solid #2c4b7c; }
+  .time { display:block; margin-top:6px; font-size:12px; color:var(--muted); }
+  .header { display:flex; align-items:center; gap:10px; }
+  .pill { padding:4px 8px; border-radius:999px; background:#11213b; color:#bcd0f7; border:1px solid #243556; font-size:12px; }
+  .muted { color:var(--muted); }
+  .hr { height:1px; background:#1f2a43; margin:10px 0; }
+  .small { font-size:12px; color:var(--muted); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <!-- Dispatcher Control Panel -->
+    <div class="panel">
+      <h2>Dispatcher Panel</h2>
+      <div class="row">
+        <div>
+          <label>Responder Label</label>
+          <input id="responderLabel" value="Police unit #22" />
+        </div>
+        <div>
+          <label>Initial ETA</label>
+          <input id="etaInitial" value="3:24 PM" />
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Updated ETA</label>
+          <input id="etaUpdated" value="3:22 PM" />
+        </div>
+        <div>
+          <label>Initial Distance (mi)</label>
+          <input id="initialMiles" type="number" step="1" min="0" value="15" />
+        </div>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="stack" style="margin-bottom:8px;">
+        <button id="btnEnRoute" class="btn accent">En Route</button>
+        <button id="btnReset" class="btn">Reset</button>
+      </div>
+
+      <label>Distance Remaining (mi)</label>
+      <input id="milesSlider" type="range" min="0" max="15" step="0.1" value="15" />
+      <div class="legend"><span>15</span><span>10</span><span>5</span><span>1</span><span>0</span></div>
+
+      <div class="meter"><div id="dot" class="dot" style="left:100%"></div></div>
+
+      <div class="stack" style="margin-top:10px;">
+        <button id="btnAuto" class="btn good">Auto-Simulate</button>
+        <button id="btnStep10" class="btn">Snap 10 mi</button>
+        <button id="btnStep5" class="btn">Snap 5 mi</button>
+        <button id="btnStep1" class="btn">Snap 1 mi</button>
+        <button id="btnArrive" class="btn">Arrive</button>
+      </div>
+      <p class="small" style="margin-top:8px;">Tip: Move the slider or use the snap buttons; messages fire once per threshold.</p>
+    </div>
+
+    <!-- Caller "Phone" -->
+    <div class="phone">
+      <div class="header">
+        <h3 style="margin:0;">Caller Screen</h3>
+        <span class="pill" id="statusPill">Awaiting dispatch…</span>
+      </div>
+
+      <div class="eta">
+        <div><span class="muted">ETA:</span> <strong id="etaText">—</strong></div>
+        <div><span class="muted">Distance:</span> <strong id="distText">—</strong></div>
+      </div>
+
+      <div id="chat" class="chat" aria-live="polite"></div>
+    </div>
+  </div>
+
+<script>
+/* ---------- Messaging Engine (JS port of your C++ thresholds) ---------- */
+class AutoMessenger {
+  constructor(opts) {
+    this.cfg = { responderLabel: "Police unit #22", etaInitial: "3:24 PM", etaUpdated: "3:22 PM" , ...opts};
+    this.flags = { enRoute:false, s10:false, s5:false, s1:false, arrived:false };
+    this.onSend = (msg)=>{};
+    this.onState = (state)=>{};
+  }
+  reset(cfg) {
+    if (cfg) this.cfg = {...this.cfg, ...cfg};
+    this.flags = { enRoute:false, s10:false, s5:false, s1:false, arrived:false };
+    this.onState({type:"reset"});
+  }
+  sendEnRoute(initialMiles) {
+    if (this.flags.enRoute) return;
+    this.flags.enRoute = true;
+    const d = Math.round(initialMiles);
+    this.onSend(`${this.cfg.responderLabel} en route. Estimated arrival is ${this.cfg.etaInitial} (${d} miles away). Please keep your phone nearby for updates.`);
+    this.onState({type:"enroute", miles:initialMiles});
+  }
+  onDistanceUpdate(m) {
+    if (this.flags.arrived) return;
+    this.onState({type:"distance", miles:m});
+
+    if (!this.flags.s10 && m <= 10) {
+      this.flags.s10 = true;
+      this.onSend(`Estimated arrival is ${this.cfg.etaInitial}. Responder is on the way, currently 10 miles out. Text here anytime with updates or concerns.`);
+    }
+    if (!this.flags.s5 && m <= 5) {
+      this.flags.s5 = true;
+      const eta = this.cfg.etaUpdated || this.cfg.etaInitial;
+      this.onSend(`Updated estimated arrival time is ${eta}. Your assigned responder is 5 miles away. Please make sure the entrance is visible/unlocked if it is safe to do so.`);
+    }
+    if (!this.flags.s1 && m <= 1) {
+      this.flags.s1 = true;
+      const eta = this.cfg.etaUpdated || this.cfg.etaInitial;
+      this.onSend(`Estimated arrival time is ${eta}. Responder is 1 mile out. Please prepare to meet them.`);
+    }
+    if (!this.flags.arrived && m <= 0.1) {
+      this.flags.arrived = true;
+      this.onSend(`Responder has arrived on scene. Entering main doors.`);
+      this.onState({type:"arrived"});
+    }
+  }
+}
+
+/* ---------- UI Wiring ---------- */
+const chat = document.getElementById('chat');
+const etaText = document.getElementById('etaText');
+const distText = document.getElementById('distText');
+const statusPill = document.getElementById('statusPill');
+const milesSlider = document.getElementById('milesSlider');
+const dot = document.getElementById('dot');
+
+const inputs = {
+  responderLabel: document.getElementById('responderLabel'),
+  etaInitial: document.getElementById('etaInitial'),
+  etaUpdated: document.getElementById('etaUpdated'),
+  initialMiles: document.getElementById('initialMiles'),
+};
+
+function addBubble(text, role='dispatcher') {
+  const el = document.createElement('div');
+  el.className = `bubble ${role}`;
+  el.innerHTML = `${text}<span class="time">${new Date().toLocaleTimeString([], {hour:'numeric', minute:'2-digit'})}</span>`;
+  chat.appendChild(el);
+  chat.scrollTop = chat.scrollHeight;
+}
+function setETA(text){ etaText.textContent = text; }
+function setDist(m){ distText.textContent = `${m.toFixed(1)} mi`; }
+function setStatus(text){ statusPill.textContent = text; }
+
+const engine = new AutoMessenger({
+  responderLabel: inputs.responderLabel.value,
+  etaInitial: inputs.etaInitial.value,
+  etaUpdated: inputs.etaUpdated.value
+});
+
+engine.onSend = (msg) => addBubble(msg, 'dispatcher');
+engine.onState = (ev) => {
+  if (ev.type === 'reset') {
+    chat.innerHTML = '';
+    setETA('—'); setDist('—'); setStatus('Awaiting dispatch…');
+    moveDot(100);
+    milesSlider.value = inputs.initialMiles.value || 15;
+  } else if (ev.type === 'enroute') {
+    setETA(engine.cfg.etaInitial);
+    setStatus('En route');
+  } else if (ev.type === 'distance') {
+    setDist(ev.miles);
+    moveDot(percentForMiles(ev.miles));
+  } else if (ev.type === 'arrived') {
+    setStatus('Arrived');
+  }
+};
+
+function percentForMiles(m) {
+  const max = parseFloat(inputs.initialMiles.value) || 15;
+  const clamped = Math.max(0, Math.min(max, m));
+  // 100% at max miles, 0% at 0
+  return (clamped / max) * 100;
+}
+function moveDot(pct) {
+  dot.style.left = `${pct}%`;
+}
+
+// Controls
+document.getElementById('btnEnRoute').onclick = () => {
+  // refresh config from inputs
+  engine.reset({
+    responderLabel: inputs.responderLabel.value,
+    etaInitial: inputs.etaInitial.value,
+    etaUpdated: inputs.etaUpdated.value
+  });
+  setTimeout(() => {
+    const miles = parseFloat(inputs.initialMiles.value) || 15;
+    milesSlider.value = miles;
+    engine.sendEnRoute(miles);
+    engine.onDistanceUpdate(miles);
+  }, 0);
+};
+
+document.getElementById('btnReset').onclick = () => engine.reset();
+
+milesSlider.addEventListener('input', (e) => {
+  const m = parseFloat(e.target.value);
+  engine.onDistanceUpdate(m);
+});
+
+document.getElementById('btnStep10').onclick = () => { milesSlider.value = 10; engine.onDistanceUpdate(10); };
+document.getElementById('btnStep5').onclick = () => { milesSlider.value = 5; engine.onDistanceUpdate(5); };
+document.getElementById('btnStep1').onclick = () => { milesSlider.value = 1; engine.onDistanceUpdate(1); };
+document.getElementById('btnArrive').onclick = () => { milesSlider.value = 0; engine.onDistanceUpdate(0); };
+
+// Auto-simulate from 15 → 0
+let autoTimer = null;
+document.getElementById('btnAuto').onclick = () => {
+  clearInterval(autoTimer);
+  let m = parseFloat(milesSlider.value);
+  if (!engine.flags.enRoute) document.getElementById('btnEnRoute').click();
+  autoTimer = setInterval(() => {
+    m = Math.max(0, m - 0.5);
+    milesSlider.value = m;
+    engine.onDistanceUpdate(m);
+    if (m <= 0) clearInterval(autoTimer);
+  }, 400);
+};
+
+// Initialize
+engine.reset();
+</script>
+</body>
+</html>
